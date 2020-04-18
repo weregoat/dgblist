@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"flag"
 	"golang.org/x/sys/unix"
 	"log"
 	"os"
@@ -10,100 +10,109 @@ import (
 	"unsafe"
 )
 
-func main() {
-	fmt.Printf("started\n")
+var mark time.Time
+var interval time.Duration
 
-	events := make(chan unix.InotifyEvent)
-	var buf = make([]byte, unix.SizeofInotifyEvent+unix.NAME_MAX+1)
-	fd, err := Watch("/tmp/logfile.log")
-	if err != nil {
-		log.Fatal(err)
+func main() {
+	mark = time.Now()
+	defer log.Print("glogg terminated")
+	logfile := flag.String("logfile", "", "Logfile to watch")
+	flag.DurationVar(&interval, "interval", time.Hour*2, "polling interval")
+	flag.Parse()
+	if len(*logfile) == 0 {
+		log.Fatal("No file to watch")
 	}
+
+	log.Printf("glogg started on %s", *logfile)
+	// Read file on start
+	f, err := os.Open(*logfile)
+	if err != nil {
+		log.Fatal()
+	}
+	pos := read(0, f)
+	f.Close()
+
+
+	fd := watch(*logfile)
+	events := make(chan int)
+	var buf = make([]byte, unix.SizeofInotifyEvent+unix.NAME_MAX+1)
+
 	go func() {
 		for {
-			n, err := unix.Read(fd, buf)
+			_, err := unix.Read(fd, buf)
 			if err != nil {
 				log.Fatal(err)
 			}
 			event := *(*unix.InotifyEvent)(unsafe.Pointer(&buf[0]))
-			fmt.Printf("%v\n", event)
-			events <- event
-			if event.Mask == unix.IN_ATTRIB {
-				/*
-				_, err = unix.InotifyRmWatch(fd, wd)
-				if err != nil {
-					log.Fatal(err)
-				}
-				*/
-				time.Sleep(30*time.Second)
-				fd, err = Watch("/tmp/logfile.log")
-				if err != nil {
-					log.Fatal(err)
-				}
+			switch event.Mask {
+			case unix.IN_ATTRIB:
+				log.Printf("received IN_ATTRIB(%d) event", event.Mask)
+			case unix.IN_DELETE:
+				log.Printf("received IN_DELETE(%d) event", event.Mask)
+			case unix.IN_DELETE_SELF:
+				log.Printf("received IN_DELETE_SELF(%d) event", event.Mask)
 			}
+			if event.Mask != unix.IN_MODIFY {
+				time.Sleep(5*time.Second)
+				fd = watch(*logfile)
+			}
+			events <- fd
 		}
 	}()
-	file, err := os.Open("/tmp/logfile.log")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	reader := bufio.NewReader(file)
-	pos := int64(0)
+
+
+	currentFD := 0
 	for {
-
-		select {
-			case data := <- events:
-				switch data.Mask {
-				case unix.IN_MODIFY:
-					fmt.Println("IN_MODIFY")
-				case unix.IN_ACCESS:
-					fmt.Println("IN_ACCESS")
-				case unix.IN_ATTRIB:
-					fmt.Println("IN_ATTRIB")
-				case unix.IN_CLOSE_WRITE:
-					fmt.Println("IN_CLOSE_WRITE")
-				case unix.IN_CLOSE_NOWRITE:
-					fmt.Println("IN_CLOSE_NO_WRITE")
-				case unix.IN_CREATE:
-					fmt.Println("IN_CREATE")
-				case unix.IN_DELETE:
-					fmt.Println("IN_DELETE")
-				case unix.IN_DELETE_SELF:
-					fmt.Println("IN_DELETE_SELF")
-				case unix.IN_MOVE_SELF:
-					fmt.Println("IN_MOVE_SELF")
-				case unix.IN_MOVED_FROM:
-					fmt.Println("IN_MOVED_FROM")
-				case unix.IN_MOVED_TO:
-					fmt.Println("IN_MOVED_TO")
-				case unix.IN_OPEN:
-					fmt.Println("IN_OPEN")
-					file.Seek(pos, 0)
-					for {
-						line, err := reader.ReadBytes('\n')
-						pos += int64(len(line))
-						fmt.Print(string(line))
-						if err != nil {
-								break
-						}
-					}
-				default:
-					fmt.Printf("Unhandled: %d", data.Mask)
-				}
-
-
+		var file *os.File
+		fd := <-events
+		// Fd has changed, try to reload file
+		if fd != currentFD {
+			file, err = os.Open(*logfile)
+			if err != nil {
+				log.Print(err)
+				break
+			}
 		}
-
+		info, err := file.Stat()
+		if err != nil {
+			log.Print(err)
+			break
+		}
+		if info.Size() < pos {
+			pos = 0
+		}
+		pos += read(pos, file)
 	}
 }
 
-func Watch(file string) (int, error) {
+func watch(file string) int {
 	fd, err := unix.InotifyInit()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	_, err = unix.InotifyAddWatch(fd, file, unix.IN_ALL_EVENTS)
-	return fd, err
+	_, err = unix.InotifyAddWatch(fd, file, unix.IN_MODIFY|unix.IN_ATTRIB|unix.IN_DELETE_SELF|unix.IN_DELETE)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return fd
 }
+
+func read(pos int64, file *os.File) int64 {
+	var bytesRead int64 = 0
+	reader := bufio.NewReader(file)
+	file.Seek(pos, 0)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			break
+		}
+		bytesRead += int64(len(line))
+		now := time.Now()
+		if now.After(mark.Add(interval)) {
+			log.Print(string(line))
+			mark = now
+		}
+	}
+	return bytesRead
+}
+
