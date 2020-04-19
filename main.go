@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"golang.org/x/sys/unix"
 	"log"
 	"os"
@@ -25,16 +26,23 @@ func main() {
 
 	log.Printf("glogg started on %s", *logfile)
 	// Read file on start
-	f, err := os.Open(*logfile)
+	file, err := os.Open(*logfile)
 	if err != nil {
 		log.Fatal()
 	}
-	pos := read(0, f)
-	f.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		log.Fatal(err)
+	}
+	pos := read(0, file)
+	defer file.Close()
 
-
-	fd := watch(*logfile)
-	events := make(chan int)
+	fd, err := unix.InotifyInit()
+	if err != nil {
+		log.Fatal(err)
+	}
+	wd := watch(fd, *logfile)
+	events := make(chan uint32)
 	var buf = make([]byte, unix.SizeofInotifyEvent+unix.NAME_MAX+1)
 
 	go func() {
@@ -44,57 +52,72 @@ func main() {
 				log.Fatal(err)
 			}
 			event := *(*unix.InotifyEvent)(unsafe.Pointer(&buf[0]))
-			switch event.Mask {
-			case unix.IN_ATTRIB:
-				log.Printf("received IN_ATTRIB(%d) event", event.Mask)
-			case unix.IN_DELETE:
-				log.Printf("received IN_DELETE(%d) event", event.Mask)
-			case unix.IN_DELETE_SELF:
-				log.Printf("received IN_DELETE_SELF(%d) event", event.Mask)
-			}
-			if event.Mask != unix.IN_MODIFY {
-				time.Sleep(5*time.Second)
-				fd = watch(*logfile)
-			}
-			events <- fd
+			events <- event.Mask
 		}
 	}()
 
-
-	currentFD := 0
 	for {
-		var file *os.File
-		fd := <-events
-		// Fd has changed, try to reload file
-		if fd != currentFD {
-			file, err = os.Open(*logfile)
+		event := <-events
+		desc := fmt.Sprintf("%d", event)
+		switch event {
+		case unix.IN_ATTRIB:
+			desc = fmt.Sprintf("IN_ATTRIB(%d)", event)
+		case unix.IN_MOVE_SELF:
+			desc = fmt.Sprintf("IN_MOVE_SELF(%d)", event)
+		case unix.IN_MODIFY:
+			desc = fmt.Sprintf("IN_MODIFY(%d)", event)
+		case unix.IN_DELETE_SELF:
+			desc = fmt.Sprintf("IN_DELETE_SELF(%d)", event)
+		}
+		fileInfo, err = file.Stat()
+		if err != nil {
+			log.Fatal(err)
+		}
+		// Any event that is not modify can lead to a new file, I
+		// don't know yet which events are relevant. When I do I will
+		// check filter them in (instead of using IN_ALL_EVENTS)
+		if event != unix.IN_MODIFY {
+			time.Sleep(1 * time.Second)
+			f, err := os.Open(*logfile)
 			if err != nil {
 				log.Print(err)
 				break
 			}
+			fi, err := f.Stat()
+			if err != nil {
+				log.Print(err)
+				break
+			}
+			// Deleted or moved
+			if ! os.SameFile(fi, fileInfo) {
+				log.Printf("event %s resulted in new file", desc)
+				file = f
+				fileInfo = fi
+				pos = 0
+				unix.InotifyRmWatch(fd, uint32(wd))
+				wd = watch(fd, *logfile)
+			}
 		}
-		info, err := file.Stat()
-		if err != nil {
-			log.Print(err)
-			break
-		}
-		if info.Size() < pos {
+		// truncated or overwritten
+		if fileInfo.Size() < pos {
+			log.Printf(
+				"event %s caused the size of file %s to change to %d",
+				desc,
+				fileInfo.Name(),
+				fileInfo.Size(),
+			)
 			pos = 0
 		}
 		pos += read(pos, file)
 	}
 }
 
-func watch(file string) int {
-	fd, err := unix.InotifyInit()
+func watch(fd int, file string) int {
+	wd, err := unix.InotifyAddWatch(fd, file, unix.IN_MODIFY|unix.IN_MOVE_SELF|unix.IN_DELETE_SELF|unix.IN_ATTRIB)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = unix.InotifyAddWatch(fd, file, unix.IN_MODIFY|unix.IN_ATTRIB|unix.IN_DELETE_SELF|unix.IN_DELETE)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return fd
+	return wd
 }
 
 func read(pos int64, file *os.File) int64 {
@@ -115,4 +138,3 @@ func read(pos int64, file *os.File) int64 {
 	}
 	return bytesRead
 }
-
