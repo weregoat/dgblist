@@ -113,6 +113,9 @@ func main() {
 }
 
 func watch(fd int, file string) int {
+	// I need to restrict the INotify events because they may come in sequence and it's difficult to log only the
+	// ones that actually trigger the behaviours I am looking after, without logging most of them (and then sort
+	// out the relevant ones manually).
 	wd, err := unix.InotifyAddWatch(fd, file, unix.IN_MODIFY|unix.IN_MOVE_SELF|unix.IN_DELETE_SELF|unix.IN_ATTRIB)
 	if err != nil {
 		log.Fatal(err)
