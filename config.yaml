@@ -1,0 +1,17 @@
+---
+nftables_set:
+  table: filter
+  name: blackhole
+sources:
+  - name: postfix
+    logfile: /tmp/mail.log
+    patterns:
+      - 'lost connection after (?:CONNECT|HELO|STARTTLS|EHLO|DATA|UNKNOWN) from [^[:space:]]+\[([0-9\.:a-f]+)\]'
+      - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: timeout after CONNECT from [^[:space:]]+\[(0-9\.:a-f]+)\]'
+      - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: lost connection after (?:CONNECT|HELO|STARTTLS|EHLO|DATA|UNKNOWN) from [^[:space:]]+\[([0-9\.:a-f]+)\]'
+      - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: NOQUEUE: reject: .* from [^[:space:]]+\[([0-9\.:a-f]+)\]'
+      - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: warning: non-SMTP command from [^[:space:]]+\[([0-9\.:a-f]+)\]'
+  - name: blacklist
+    logfile: /tmp/messages
+    patterns:
+      - 'kernel: Blacklist: .*SRC=([0-9\.:a-f]+)'
