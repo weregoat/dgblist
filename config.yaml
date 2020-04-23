@@ -1,10 +1,14 @@
 ---
-nftables_set:
-  table: filter
-  name: blackhole
 sources:
   - name: postfix
-    logfile: /tmp/mail.log
+    syslog: &syslog
+      tag: dgblist
+      facility: local0
+    debug: true
+    nftables_set: &blackhole
+      table: filter
+      name: blackhole
+    logfile: /var/log/mail.log
     patterns:
       - 'lost connection after (?:CONNECT|HELO|STARTTLS|EHLO|DATA|UNKNOWN) from [^[:space:]]+\[([0-9\.:a-f]+)\]'
       - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: timeout after CONNECT from [^[:space:]]+\[(0-9\.:a-f]+)\]'
@@ -12,6 +16,16 @@ sources:
       - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: NOQUEUE: reject: .* from [^[:space:]]+\[([0-9\.:a-f]+)\]'
       - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: warning: non-SMTP command from [^[:space:]]+\[([0-9\.:a-f]+)\]'
   - name: blacklist
-    logfile: /tmp/messages
+    debug: false
+    syslog: *syslog
+    nftables_set: *blackhole
+    logfile: /var/log/messages
     patterns:
       - 'kernel: Blacklist: .*SRC=([0-9\.:a-f]+)'
+  - name: auth
+    debug: true
+    syslog: *syslog
+    nftables_set: *blackhole
+    logfile: /var/log/auth.log
+    patterns:
+      - 'pam_unix\(sshd:auth\): authentication failure; .*rhost=([0-9\.:a-f]+)'

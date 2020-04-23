@@ -1,27 +1,35 @@
 package main
 
 import (
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"regexp"
 )
 
 type Config struct {
-	Set     NftSet   `yaml:"nftables_set"`
 	Sources []Source `yaml:"sources",flow`
+
+}
+
+type Syslog struct {
+	Facility string `yaml:"facility"`
+	Tag string `yaml:"tag"`
 }
 
 type Source struct {
 	Name string `yaml:"name"`
-	//	Set NftSet `yaml:"nftables_set",omitempty`
+	Set NftSet `yaml:"nftables_set"`
 	LogFile  string   `yaml:"logfile"`
 	Patterns []string `yaml:"patterns"`
 	Regexps  []*regexp.Regexp
+	Debug    bool `yaml:"debug"`
+	Syslog Syslog `yaml:"syslog"`
 	Events   chan uint32
 }
 
-func parse(filename string) (config Config, err error) {
+func parse(filename string) (sources []Source, err error) {
+	config := Config{}
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return
@@ -31,25 +39,13 @@ func parse(filename string) (config Config, err error) {
 		return
 	}
 
-	if len(config.Set.Name) > 0 {
-		err = config.Set.Check()
-		if err != nil {
-			return
-		}
-	}
-
-	var sources []Source
 	for _, source := range config.Sources {
-		/*
-			if len(source.Set.Name) == 0 {
-				source.Set = config.Set
-			}
+		if len(source.Set.Name) > 0 {
 			err = source.Set.Check()
-
 			if err != nil {
-				break
+				return
 			}
-		*/
+		}
 		_, err := os.Stat(source.LogFile)
 		if err != nil {
 			break
@@ -67,6 +63,5 @@ func parse(filename string) (config Config, err error) {
 		source.Regexps = regexps
 		sources = append(sources, source)
 	}
-	config.Sources = sources
 	return
 }

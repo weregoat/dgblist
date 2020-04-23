@@ -13,7 +13,7 @@ type NftSet struct {
 }
 
 func (s NftSet) Check() error {
-	_, err := getSet(s.Table, s.Name)
+	_, err := s.Get()
 	return err
 }
 
@@ -21,52 +21,34 @@ func (s NftSet) Delete(address string) error {
 	return nil
 }
 
-func (s NftSet) Add(ips ...net.IP) error {
-	set, err := getSet(s.Table, s.Name)
-	if check(err) {
+func (s NftSet) Add(addresses ...string) error {
+	set, err := s.Get()
+	if err != nil {
 		return err
 	}
 	c := nftables.Conn{}
 	var elements []nftables.SetElement
-	for _, ip := range ips {
-		element := nftables.SetElement{
-			Key: ip.To4(),
+	for _,address := range addresses {
+		ip := net.ParseIP(address).To4()
+		if ip != nil {
+			element := nftables.SetElement{
+				Key: ip.To4(),
+			}
+			elements = append(elements, element)
 		}
-		elements = append(elements, element)
 	}
 	err = c.SetAddElements(set, elements)
-	if err == nil {
-		err = c.Flush()
+	if err != nil {
+		return err
 	}
+	err = c.Flush()
 	return err
 }
 
-func getSet(tableName, SetName string) (set *nftables.Set, err error) {
-	var (
-		//chain *nftables.Chain
-		table *nftables.Table
-	)
+func (s NftSet) Get() (set *nftables.Set, err error) {
+	var table *nftables.Table
 
-	c := nftables.Conn{}
-	/*
-		chains, err := c.ListChains()
-		if err != nil {
-			return
-		}
-
-		for _, c := range chains {
-			if strings.EqualFold(c.Name, chainName) {
-				chain = c
-				break
-			}
-		}
-
-		if chain == nil {
-			err = fmt.Errorf("no chain with name %s", chainName)
-			return
-		}
-
-	*/
+	c := &nftables.Conn{}
 
 	tables, err := c.ListTables()
 	if err != nil {
@@ -74,18 +56,18 @@ func getSet(tableName, SetName string) (set *nftables.Set, err error) {
 	}
 
 	for _, t := range tables {
-		if t.Name == tableName {
+		if t.Name == s.Table {
 			table = t
 			break
 		}
 	}
 
 	if table == nil {
-		err = fmt.Errorf("no table with name %s", tableName)
+		err = fmt.Errorf("no table with name %s", s.Table)
 		return
 	}
 
-	set, err = c.GetSetByName(table, SetName)
+	set, err = c.GetSetByName(table, s.Name)
 	return
 	/*
 		if err != nil {
