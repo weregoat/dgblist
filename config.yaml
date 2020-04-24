@@ -1,21 +1,23 @@
 ---
 sources:
-  - name: postfix
-    syslog: &syslog
-      tag: dgblist
-      facility: local0
-    debug: true
+  - name: postfix # Just a name to identify the source
+    syslog: &syslog # Syslog configuration
+      tag: dgblist # syslog tag
+      facility: local0 # Facility local0, local1... mail... Not all allowed.
+      level: debug # minimum level. Be careful if you are logging to the same facility your logs are from
     nftables_set: &blackhole
-      table: filter
-      name: blackhole
-    logfile: /var/log/mail.log
-    patterns:
+      table: filter # nftables table
+      name: blackhole # name of the set
+      timeout: 5d4h3m2s # days, hours, minutes... when creating a set
+      type: ipv4 # Or ipv6
+    logfile: /var/log/mail.log # Log file to watch
+    patterns: # Regexp patterns. Golang syntax https://github.com/google/re2/wiki/Syntax
       - 'lost connection after (?:CONNECT|HELO|STARTTLS|EHLO|DATA|UNKNOWN) from [^[:space:]]+\[([0-9\.:a-f]+)\]'
       - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: timeout after CONNECT from [^[:space:]]+\[(0-9\.:a-f]+)\]'
       - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: lost connection after (?:CONNECT|HELO|STARTTLS|EHLO|DATA|UNKNOWN) from [^[:space:]]+\[([0-9\.:a-f]+)\]'
       - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: NOQUEUE: reject: .* from [^[:space:]]+\[([0-9\.:a-f]+)\]'
       - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: warning: non-SMTP command from [^[:space:]]+\[([0-9\.:a-f]+)\]'
-  - name: blacklist
+  - name: blacklist # Another source
     debug: false
     syslog: *syslog
     nftables_set: *blackhole

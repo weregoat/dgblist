@@ -3,29 +3,28 @@ package main
 import (
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
+	"log"
 	"os"
-	"regexp"
+	"sync"
 )
 
 type Config struct {
-	Sources []Source `yaml:"sources",flow`
-
+	Sources []SourceConfig `yaml:"sources",flow`
 }
 
 type Syslog struct {
 	Facility string `yaml:"facility"`
 	Tag string `yaml:"tag"`
+	LogLevel string `yaml:"level"`
 }
 
-type Source struct {
-	Name string `yaml:"name"`
-	Set NftSet `yaml:"nftables_set"`
+type SourceConfig struct {
+	sync.Mutex
+	Name     string   `yaml:"name"`
+	Set      NftSet   `yaml:"nftables_set"`
 	LogFile  string   `yaml:"logfile"`
 	Patterns []string `yaml:"patterns"`
-	Regexps  []*regexp.Regexp
-	Debug    bool `yaml:"debug"`
-	Syslog Syslog `yaml:"syslog"`
-	Events   chan uint32
+	Syslog   Syslog `yaml:"syslog"`
 }
 
 func parse(filename string) (sources []Source, err error) {
@@ -39,28 +38,18 @@ func parse(filename string) (sources []Source, err error) {
 		return
 	}
 
-	for _, source := range config.Sources {
-		if len(source.Set.Name) > 0 {
-			err = source.Set.Check()
-			if err != nil {
-				return
-			}
-		}
-		_, err := os.Stat(source.LogFile)
+	for _, sourceConfig := range config.Sources {
+		source, err := Init(sourceConfig)
 		if err != nil {
-			break
+			log.SetOutput(os.Stderr)
+			log.Printf(
+				"could not initialize source %s in configuration %s",
+				sourceConfig.Name,
+				filename,
+				)
+			log.Print(err)
+			continue
 		}
-
-		var regexps []*regexp.Regexp
-		for _, pattern := range source.Patterns {
-			r, err := regexp.Compile(pattern)
-			if err != nil {
-				check(err)
-				continue
-			}
-			regexps = append(regexps, r)
-		}
-		source.Regexps = regexps
 		sources = append(sources, source)
 	}
 	return
