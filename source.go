@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -98,15 +99,9 @@ func (source *Source) Watch() {
 		return
 	}
 	source.File = file
-	fileInfo, err := file.Stat()
-	if err != nil {
-		source.Err(err.Error())
-		return
-	}
-	source.FileInfo = fileInfo
 	blacklist := source.read()
-	source.addBlacklist(blacklist)
 
+	source.addBlacklist(blacklist)
 	/*
 		inotify_init(2)
 		inotify_init() initializes a new inotify instance and returns a file
@@ -146,8 +141,6 @@ func (source *Source) Watch() {
 		case event := <-events:
 			desc := fmt.Sprintf("%d", event)
 			switch event {
-			case unix.IN_ATTRIB:
-				desc = fmt.Sprintf("IN_ATTRIB(%d)", event)
 			case unix.IN_MOVE_SELF:
 				desc = fmt.Sprintf("IN_MOVE_SELF(%d)", event)
 			case unix.IN_MODIFY:
@@ -168,7 +161,7 @@ func (source *Source) Watch() {
 				time.Sleep(1 * time.Second)
 				err = source.Refresh()
 				if err != nil {
-					source.Logger.Err(err.Error())
+					source.Err(err.Error())
 					return
 				}
 			}
@@ -208,7 +201,7 @@ func (source *Source) inotifyAddWatch() error {
 	*/
 	source.WatchDescriptor, err = unix.InotifyAddWatch(
 		source.FileDescriptor, source.LogFile,
-		unix.IN_MODIFY|unix.IN_MOVE_SELF|unix.IN_DELETE_SELF|unix.IN_ATTRIB,
+		unix.IN_MODIFY|unix.IN_MOVE_SELF|unix.IN_DELETE_SELF,
 	)
 	return err
 }
@@ -243,9 +236,15 @@ func (source *Source) Refresh() error {
 
 func (source *Source) read() map[string]string {
 	var blacklist = make(map[string]string)
+	var err error
 	source.Lock()
+	source.FileInfo, err = source.File.Stat()
+	if err != nil {
+		source.Err(err.Error())
+		return blacklist
+	}
 	if source.FileInfo.Size() < source.Pos {
-		source.Logger.Info(
+		source.Info(
 			fmt.Sprintf(
 				"file %s size changed to %d",
 				source.FileInfo.Name(),
@@ -258,11 +257,12 @@ func (source *Source) read() map[string]string {
 	var bytesRead int64 = 0
 	source.File.Seek(source.Pos, 0)
 	for {
+		var line []byte
 		reader := bufio.NewReader(source.File)
-		line, err := reader.ReadBytes('\n')
+		line, err = reader.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
-				source.Logger.Err(err.Error())
+				source.Err(err.Error())
 			}
 			break
 		}
@@ -290,7 +290,14 @@ func (source *Source) read() map[string]string {
 	source.Pos += bytesRead
 	if source.LogLevel >= syslog.LOG_DEBUG {
 		for ip, match := range blacklist {
-			text := fmt.Sprintf("address %s matches from %+q", ip, match)
+			// Remove the IP from the matching string to avoid the regexp to match it again if the log is feed to the
+			// same log file.
+			text := fmt.Sprintf(
+				"address %s matches from %+q",
+				ip, strings.Replace(
+					match, ip, "{address was here}",
+					-1),
+				)
 			source.Debug(text)
 		}
 	}
