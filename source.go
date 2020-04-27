@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"golang.org/x/sys/unix"
 	"io"
+	"log"
 	"log/syslog"
 	"net"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"sync"
@@ -15,6 +17,7 @@ import (
 	"unsafe"
 )
 
+// Source is the struct defining the log source to watch.
 type Source struct {
 	sync.Mutex
 	Name            string
@@ -32,12 +35,25 @@ type Source struct {
 	Config          SourceConfig
 }
 
+// Init initialise the source according to the configuration entry.
 func Init(config SourceConfig) (source Source, err error) {
 	source = Source{}
 	source.LogFile = config.LogFile
 	source.Name = config.Name
 	source.Lock()
 	defer source.Unlock()
+	if len(config.Syslog.Facility) == 0 {
+		config.Syslog.Facility = DEFAULT_FACILITY
+		log.Printf("No syslog facility specified; using %s", config.Syslog.Facility)
+	}
+	if len(config.Syslog.LogLevel) == 0 {
+		config.Syslog.LogLevel = DEFAULT_LEVEL
+		log.Printf("No minimum syslog severity specified; using %s", config.Syslog.LogLevel)
+	}
+	if len(config.Syslog.Tag) == 0 {
+		config.Syslog.Tag = path.Base(os.Args[0])
+		log.Printf("No syslog tag specified; using %s", config.Syslog.Tag)
+	}
 	logger, err := syslog.New(
 		facility(config.Syslog.Facility)|severity(config.Syslog.LogLevel),
 		config.Syslog.Tag,
@@ -77,11 +93,19 @@ func Init(config SourceConfig) (source Source, err error) {
 			regexps = append(regexps, r)
 		}
 	}
+	if len(regexps) == 0 {
+		source.Warning(
+			fmt.Sprintf(
+				"No valid regular expression defined for source %s",
+				source.Name),
+		)
+	}
 	source.Regexps = regexps
 	source.Config = config
 	return
 }
 
+// Close tried to close the open files the source is using.
 func (source *Source) Close() {
 	source.Info(
 		fmt.Sprintf("ending %s watch", source.Name),
@@ -91,6 +115,7 @@ func (source *Source) Close() {
 	source.Unlock()
 }
 
+// Watch starts watching the source file for matching patterns.
 func (source *Source) Watch() {
 	// Read file on start
 	file, err := os.Open(source.LogFile)
@@ -171,6 +196,7 @@ func (source *Source) Watch() {
 	}
 }
 
+// addBlacklist add the entries in the blacklist to the nftables set.
 func (source *Source) addBlacklist(blacklist map[string]string) {
 	added, err := source.Set.Add(getKeys(blacklist)...)
 	if err != nil {
@@ -179,7 +205,7 @@ func (source *Source) addBlacklist(blacklist map[string]string) {
 	for _, ip := range added {
 		source.Info(
 			fmt.Sprintf(
-				"added %s to set %s",
+				"added %s to @%s",
 				ip.String(), source.Set.Name,
 			),
 		)
@@ -187,6 +213,7 @@ func (source *Source) addBlacklist(blacklist map[string]string) {
 
 }
 
+// inotifyAddWatch adds a inotify watch for the given source.
 func (source *Source) inotifyAddWatch() error {
 	var err error
 	/*
@@ -206,6 +233,7 @@ func (source *Source) inotifyAddWatch() error {
 	return err
 }
 
+// Refresh re-open a logfile if it has changed.
 func (source *Source) Refresh() error {
 	source.Lock()
 	defer source.Unlock()
@@ -234,6 +262,7 @@ func (source *Source) Refresh() error {
 	return nil
 }
 
+// read looks for new log entries in the file and matches to the regexps.
 func (source *Source) read() map[string]string {
 	var blacklist = make(map[string]string)
 	var err error
@@ -279,7 +308,7 @@ func (source *Source) read() map[string]string {
 							source.Warning(
 								fmt.Sprintf(
 									"invalid IPv4 (%s) from regexp %+q\n", m[1], r.String(),
-									),
+								),
 							)
 						}
 					}
@@ -297,7 +326,7 @@ func (source *Source) read() map[string]string {
 				ip, strings.Replace(
 					match, ip, "{address was here}",
 					-1),
-				)
+			)
 			source.Debug(text)
 		}
 	}

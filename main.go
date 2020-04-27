@@ -4,19 +4,26 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"path"
 	"sync"
 )
 
 func main() {
-	fileConfig := flag.String("config", "", "Configuration file")
+	var fileConfig string
+	flag.StringVar(&fileConfig, "config", "", "Configuration file")
 	flag.Parse()
-	if len(*fileConfig) == 0 {
-		log.Fatal("No configuration file")
+	if len(fileConfig) == 0 {
+		filename := path.Base(os.Args[0]) + ".yaml"
+		fileConfig = path.Join("/etc/", filename)
 	}
 
-	sources, err := parse(*fileConfig)
+	sources, err := parse(fileConfig)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if len(sources) == 0 {
+		log.Fatal("No valid sources to watch")
 	}
 	var wg sync.WaitGroup
 	for _, source := range sources {
@@ -30,14 +37,14 @@ func main() {
 func watch(source Source, wg *sync.WaitGroup) {
 	source.Info(
 		fmt.Sprintf("starting %s watch", source.Name),
-		)
+	)
 	defer source.Close()
 	source.Watch()
 	wg.Done()
 }
 
 func getKeys(list map[string]string) []string {
-	i:= 0
+	i := 0
 	keys := make([]string, len(list))
 	for ip := range list {
 		keys[i] = ip

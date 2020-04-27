@@ -13,10 +13,9 @@ sources:
     logfile: /var/log/mail.log # Log file to watch
     patterns: # Regexp patterns. Golang syntax https://github.com/google/re2/wiki/Syntax
       - 'lost connection after (?:CONNECT|HELO|STARTTLS|EHLO|DATA|UNKNOWN) from [^[:space:]]+\[([0-9\.:a-f]+)\]'
-      - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: timeout after CONNECT from [^[:space:]]+\[(0-9\.:a-f]+)\]'
-      - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: lost connection after (?:CONNECT|HELO|STARTTLS|EHLO|DATA|UNKNOWN) from [^[:space:]]+\[([0-9\.:a-f]+)\]'
-      - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: NOQUEUE: reject: .* from [^[:space:]]+\[([0-9\.:a-f]+)\]'
-      - 'postfix/(?:submission/)?smtpd\[[[:digit:]]+\]: warning: non-SMTP command from [^[:space:]]+\[([0-9\.:a-f]+)\]'
+      - 'timeout after CONNECT from [^[:space:]]+\[(0-9\.:a-f]+)\]'
+      - 'NOQUEUE: reject: .* from [^[:space:]]+\[([0-9\.:a-f]+)\]'
+      - 'warning: non-SMTP command from [^[:space:]]+\[([0-9\.:a-f]+)\]'
   - name: blacklist # Another source
     debug: false
     syslog: *syslog

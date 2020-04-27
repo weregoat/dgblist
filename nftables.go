@@ -4,31 +4,26 @@ import (
 	"fmt"
 	"gitlab.com/weregoat/nftables"
 	"net"
-	"regexp"
-	"strconv"
 	"strings"
-	"time"
 )
 
 const IPV4 = "ipv4"
 const IPV6 = "ipv6"
 
+// NftSet is a struct defining some of the properties of a nftables set.
 type NftSet struct {
-	Table   string `yaml:"table"`
-	Name    string `yaml:"name"`
-	Timeout string `yaml:"timeout"`
-	Type    string `yaml:"type"`
+	Table string `yaml:"table"`
+	Name  string `yaml:"name"`
+	Type  string `yaml:"type"`
 }
 
+// Check controls that a nftables exists or generate ones, if not.
 func (s NftSet) Check() error {
 	_, err := s.Get()
 	return err
 }
 
-func (s NftSet) Delete(address string) error {
-	return nil
-}
-
+// Add adds the given address to the set.
 func (s NftSet) Add(addresses ...string) ([]net.IP, error) {
 	var added []net.IP
 	set, err := s.Get()
@@ -66,6 +61,8 @@ func (s NftSet) Add(addresses ...string) ([]net.IP, error) {
 	return added, err
 }
 
+// Get returns a pointer to the set.
+// One is created if doesn't exist already.
 func (s NftSet) Get() (set *nftables.Set, err error) {
 	var table *nftables.Table
 
@@ -88,47 +85,5 @@ func (s NftSet) Get() (set *nftables.Set, err error) {
 		return
 	}
 
-	set, err = c.GetSetByName(table, s.Name)
-	if err != nil {
-		kType := nftables.TypeIPAddr
-		if strings.EqualFold(s.Type, IPV6) {
-			kType = nftables.TypeIP6Addr
-		}
-		set = &nftables.Set{
-			Name:       s.Name,
-			Table:      table,
-			KeyType:    kType,
-			HasTimeout: true,
-			Timeout:    parseTimeout(s.Timeout),
-		}
-		err = c.AddSet(set, []nftables.SetElement{})
-		if err != nil {
-			return
-		}
-		err = c.Flush()
-	}
-	return
-}
-
-func parseTimeout(timeout string) time.Duration {
-	patterns := map[string]int64{
-		"([0-9]+)d": (time.Hour * 24).Nanoseconds(),
-		"([0-9]+)h": (time.Hour).Nanoseconds(),
-		"([0-9]+)m": (time.Minute).Nanoseconds(),
-		"([0-9]+)s": (time.Second).Nanoseconds(),
-	}
-	var t int64 = 0
-	for pattern, lenght := range patterns {
-		r := regexp.MustCompile(pattern)
-		m := r.FindStringSubmatch(timeout)
-		if len(m) > 0 {
-			for i := 1; i < len(m); i++ {
-				d, err := strconv.Atoi(m[i])
-				if err == nil {
-					t += lenght * int64(d)
-				}
-			}
-		}
-	}
-	return time.Duration(t)
+	return c.GetSetByName(table, s.Name)
 }

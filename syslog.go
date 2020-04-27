@@ -5,6 +5,10 @@ import (
 	"strings"
 )
 
+const DEFAULT_LEVEL = "notice"
+const DEFAULT_FACILITY = "user"
+
+// facility converts a syslog facility string into a int
 func facility(keyword string) syslog.Priority {
 	switch strings.ToLower(keyword) {
 	case "user":
@@ -37,6 +41,7 @@ func facility(keyword string) syslog.Priority {
 	return syslog.LOG_LOCAL5
 }
 
+// severity converts a syslog severity string into a int.
 func severity(keyword string) syslog.Priority {
 	switch strings.ToLower(keyword) {
 	case "emerg", "panic":
@@ -70,34 +75,40 @@ func (source *Source) Info(message string) {
 		source.Logger.Info(message)
 	}
 }
+
 func (source *Source) Notice(message string) {
 	if source.LogLevel >= syslog.LOG_NOTICE {
 		source.Logger.Notice(message)
 	}
 }
+
+// Warning
 func (source *Source) Warning(message string) {
 	if source.LogLevel >= syslog.LOG_WARNING {
 		source.Logger.Warning(message)
 	}
 }
+
 func (source *Source) Err(message string) {
 	if source.LogLevel >= syslog.LOG_ERR {
 		source.Logger.Err(message)
 	}
 }
+
 func (source *Source) Crit(message string) {
 	if source.LogLevel >= syslog.LOG_CRIT {
 		source.Logger.Crit(message)
 	}
 }
+
 func (source *Source) Alert(message string) {
 	if source.LogLevel >= syslog.LOG_ALERT {
 		source.Logger.Alert(message)
 	}
 }
+
 func (source *Source) Emerg(message string) {
 	if source.LogLevel >= syslog.LOG_EMERG {
 		source.Logger.Emerg(message)
 	}
 }
-

@@ -1,0 +1,13 @@
+[Unit]
+Description=Dynamic blacklisting for goats
+After=nftables.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/tmp/
+ExecStart=/usr/local/bin/dgblist -config /usr/local/etc/dgblist.yaml
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
