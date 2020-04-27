@@ -285,9 +285,9 @@ func (source *Source) read() map[string]string {
 	defer source.Unlock()
 	var bytesRead int64 = 0
 	source.File.Seek(source.Pos, 0)
+	reader := bufio.NewReader(source.File)
 	for {
 		var line []byte
-		reader := bufio.NewReader(source.File)
 		line, err = reader.ReadBytes('\n')
 		if err != nil {
 			if err != io.EOF {
