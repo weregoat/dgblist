@@ -8,7 +8,6 @@ sources:
     nftables_set: &blackhole
       table: filter # nftables table
       name: blackhole # name of the set
-      timeout: 5d4h3m2s # days, hours, minutes... when creating a set
       type: ipv4 # Or ipv6
     logfile: /var/log/mail.log # Log file to watch
     patterns: # Regexp patterns. Golang syntax https://github.com/google/re2/wiki/Syntax
