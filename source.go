@@ -173,7 +173,6 @@ func (source *Source) Watch() {
 			case unix.IN_DELETE_SELF:
 				desc = fmt.Sprintf("IN_DELETE_SELF(%d)", event)
 			}
-
 			// Any event that is not modify can lead to a new file, I
 			// don't know yet which events are relevant. When I do I will
 			// check filter them in (instead of using IN_ALL_EVENTS)
@@ -247,6 +246,7 @@ func (source *Source) Refresh() error {
 	}
 	// Deleted or moved
 	if !os.SameFile(fi, source.FileInfo) {
+		source.File.Close()
 		source.Logger.Info(
 			fmt.Sprintf("re-opening %s file", source.LogFile),
 		)
