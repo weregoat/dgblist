@@ -33,6 +33,7 @@ type Source struct {
 	WatchDescriptor int
 	LogLevel        syslog.Priority
 	Config          SourceConfig
+	Stats           Stats
 }
 
 // Init initialise the source according to the configuration entry.
@@ -117,6 +118,7 @@ func (source *Source) Close() {
 
 // Watch starts watching the source file for matching patterns.
 func (source *Source) Watch() {
+	source.Stats.Started = time.Now()
 	// Read file on start
 	file, err := os.Open(source.LogFile)
 	if err != nil {
@@ -158,12 +160,19 @@ func (source *Source) Watch() {
 		}
 	}()
 
+	lastStats := time.Now()
 	for {
+		now := time.Now()
+		if now.Sub(lastStats) >= 12*time.Hour {
+			source.LogStats()
+			lastStats = now
+		}
 		select {
 		case err := <-errors:
 			source.Logger.Err(err.Error())
 			return
 		case event := <-events:
+			source.Stats.Events++
 			desc := fmt.Sprintf("%d", event)
 			switch event {
 			case unix.IN_MOVE_SELF:
@@ -208,6 +217,7 @@ func (source *Source) addBlacklist(blacklist map[string]string) {
 				ip.String(), source.Set.Name,
 			),
 		)
+		source.Stats.IPAdded++
 	}
 
 }
@@ -317,6 +327,7 @@ func (source *Source) read() map[string]string {
 		}
 	}
 	source.Pos += bytesRead
+	source.Stats.BytesRead += bytesRead
 	if source.LogLevel >= syslog.LOG_DEBUG {
 		for ip, match := range blacklist {
 			// Remove the IP from the matching string to avoid the regexp to match it again if the log is feed to the
