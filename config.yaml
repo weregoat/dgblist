@@ -1,6 +1,7 @@
 ---
 sources:
   - name: postfix # Just a name to identify the source
+    stats_interval: 8h # Minimum interval between stats logging. Omit no skip.
     syslog: &syslog # Syslog configuration
       tag: dgblist # syslog tag
       facility: local0 # Facility local0, local1... mail... Not all allowed.

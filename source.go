@@ -103,6 +103,15 @@ func Init(config SourceConfig) (source Source, err error) {
 	}
 	source.Regexps = regexps
 	source.Config = config
+	if len(config.StatsInterval) > 0 {
+		interval, err := time.ParseDuration(config.StatsInterval)
+		if err != nil {
+			source.Warning(err.Error())
+		}
+		if interval > 0 {
+			source.Stats.Interval = interval
+		}
+	}
 	return
 }
 
@@ -160,13 +169,7 @@ func (source *Source) Watch() {
 		}
 	}()
 
-	lastStats := time.Now()
 	for {
-		now := time.Now()
-		if now.Sub(lastStats) >= 12*time.Hour {
-			source.LogStats()
-			lastStats = now
-		}
 		select {
 		case err := <-errors:
 			source.Logger.Err(err.Error())
@@ -210,6 +213,7 @@ func (source *Source) addBlacklist(blacklist map[string]string) {
 	if err != nil {
 		source.Err(err.Error())
 	}
+	source.Stats.IPAdded += len(added)
 	for _, ip := range added {
 		source.Info(
 			fmt.Sprintf(
@@ -217,9 +221,7 @@ func (source *Source) addBlacklist(blacklist map[string]string) {
 				ip.String(), source.Set.Name,
 			),
 		)
-		source.Stats.IPAdded++
 	}
-
 }
 
 // inotifyAddWatch adds a inotify watch for the given source.

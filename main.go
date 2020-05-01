@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -39,6 +40,7 @@ func watch(source Source, wg *sync.WaitGroup) {
 		fmt.Sprintf("starting %s watch", source.Name),
 	)
 	defer source.Close()
+	go stats(&source)
 	source.Watch()
 	wg.Done()
 }
@@ -51,4 +53,14 @@ func getKeys(list map[string]string) []string {
 		i++
 	}
 	return keys
+}
+
+func stats(s *Source) {
+	if s.Stats.Interval <= 0 {
+		return
+	}
+	for {
+		time.Sleep(s.Stats.Interval)
+		s.LogStats()
+	}
 }

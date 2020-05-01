@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 )
 
@@ -10,6 +11,7 @@ type Stats struct {
 	BytesRead int64
 	IPAdded   int
 	Events    int
+	Interval  time.Duration
 }
 
 func (source *Source) LogStats() {
@@ -25,7 +27,7 @@ func (source *Source) LogStats() {
 		),
 	)
 	source.Info(
-		fmt.Sprintf("Address added to @%s: %d",
+		fmt.Sprintf("Addresses added to @%s: %d",
 			source.Set.Name, source.Stats.IPAdded,
 		),
 	)
@@ -33,5 +35,19 @@ func (source *Source) LogStats() {
 		fmt.Sprintf("Events received: %d",
 			source.Stats.Events,
 		),
+	)
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	source.Debug(
+		fmt.Sprintf("Alloc = %v MiB", m.Alloc/(1024*1024)),
+	)
+	source.Debug(
+		fmt.Sprintf("Total alloc = %v MiB", m.TotalAlloc/(1024*1024)),
+	)
+	source.Debug(
+		fmt.Sprintf("Sys = %v MiB", m.Sys/(1024*1024)),
+	)
+	source.Debug(
+		fmt.Sprintf("NumGC = %v MiB", m.NumGC),
 	)
 }

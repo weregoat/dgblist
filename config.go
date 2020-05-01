@@ -23,11 +23,12 @@ type Syslog struct {
 // SourceConfig configuration entry for source.
 type SourceConfig struct {
 	sync.Mutex
-	Name     string   `yaml:"name"`
-	Set      NftSet   `yaml:"nftables_set"`
-	LogFile  string   `yaml:"logfile"`
-	Patterns []string `yaml:"patterns"`
-	Syslog   Syslog   `yaml:"syslog"`
+	Name          string   `yaml:"name"`
+	Set           NftSet   `yaml:"nftables_set"`
+	LogFile       string   `yaml:"logfile"`
+	Patterns      []string `yaml:"patterns"`
+	Syslog        Syslog   `yaml:"syslog"`
+	StatsInterval string   `yaml:"stats_interval"`
 }
 
 // parse reads the configuration file and returns a list of sources to watch.
