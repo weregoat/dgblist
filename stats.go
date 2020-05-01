@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"time"
 )
@@ -18,36 +19,52 @@ func (source *Source) LogStats() {
 	now := time.Now()
 	source.Info(
 		fmt.Sprintf(
-			"Running time: %s", now.Sub(source.Stats.Started),
+			"%s running time: %s",
+			source.Name,
+			now.Sub(source.Stats.Started),
 		),
 	)
 	source.Info(
 		fmt.Sprintf(
-			"Bytes read: %d", source.Stats.BytesRead,
+			"%s bytes read: %d",
+			source.Name,
+			source.Stats.BytesRead,
+
 		),
 	)
 	source.Info(
-		fmt.Sprintf("Addresses added to @%s: %d",
-			source.Set.Name, source.Stats.IPAdded,
+		fmt.Sprintf("%s addresses added to @%s: %d",
+			source.Name,
+			source.Set.Name,
+			source.Stats.IPAdded,
 		),
 	)
 	source.Info(
-		fmt.Sprintf("Events received: %d",
+		fmt.Sprintf("%s events received: %d",
+			source.Name,
 			source.Stats.Events,
 		),
 	)
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	source.Debug(
-		fmt.Sprintf("Alloc = %v MiB", m.Alloc/(1024*1024)),
+		fmt.Sprintf("%s Alloc = %v MiB",
+			os.Args[0],
+			m.Alloc/(1024*1024)),
 	)
 	source.Debug(
-		fmt.Sprintf("Total alloc = %v MiB", m.TotalAlloc/(1024*1024)),
+		fmt.Sprintf( "%s Total alloc = %v MiB",
+			os.Args[0],
+			m.TotalAlloc/(1024*1024)),
 	)
 	source.Debug(
-		fmt.Sprintf("Sys = %v MiB", m.Sys/(1024*1024)),
+		fmt.Sprintf("%s Sys = %v MiB",
+			os.Args[0],
+			m.Sys/(1024*1024)),
 	)
 	source.Debug(
-		fmt.Sprintf("NumGC = %v MiB", m.NumGC),
+		fmt.Sprintf("%s NumGC = %v MiB",
+			os.Args[0],
+			m.NumGC),
 	)
 }
