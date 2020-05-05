@@ -93,11 +93,11 @@ func formatBytes(bytes int64) string {
 	var div int64 = 1
 	var symbol = "B"
 	symbols := map[int64]string{
-		1000000000:"GB",
-		1000000:"MB",
-		1000:"kB",
+		1000000000: "GB",
+		1000000:    "MB",
+		1000:       "kB",
 	}
-	for d,s := range symbols {
+	for d, s := range symbols {
 		if bytes > d {
 			div = d
 			symbol = s
