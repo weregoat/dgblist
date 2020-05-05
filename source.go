@@ -307,6 +307,7 @@ func (source *Source) read() map[string]string {
 			}
 			break
 		}
+		source.Stats.LinesRead++
 		bytesRead += int64(len(line))
 		for _, r := range source.Regexps {
 			sm := r.FindAllStringSubmatch(string(line), -1)

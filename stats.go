@@ -10,6 +10,7 @@ import (
 type Stats struct {
 	Started   time.Time
 	BytesRead int64
+	LinesRead int64
 	IPAdded   int
 	Events    int
 	Interval  time.Duration
@@ -17,6 +18,12 @@ type Stats struct {
 
 func (source *Source) LogStats() {
 	now := time.Now()
+	source.Info(
+		fmt.Sprintf("%s current log file: %s",
+			source.Name,
+			source.File.Name(),
+		),
+	)
 	source.Info(
 		fmt.Sprintf(
 			"%s running time: %s",
@@ -26,10 +33,23 @@ func (source *Source) LogStats() {
 	)
 	source.Info(
 		fmt.Sprintf(
-			"%s bytes read: %d",
+			"%s total read since start: %s",
 			source.Name,
-			source.Stats.BytesRead,
-
+			formatBytes(source.Stats.BytesRead),
+		),
+	)
+	source.Info(
+		fmt.Sprintf(
+			"%s bytes read current log file: %s",
+			source.Name,
+			formatBytes(source.Pos),
+		),
+	)
+	source.Info(
+		fmt.Sprintf(
+			"%s lines processed: %d",
+			source.Name,
+			source.Stats.LinesRead,
 		),
 	)
 	source.Info(
@@ -53,7 +73,7 @@ func (source *Source) LogStats() {
 			m.Alloc/(1024*1024)),
 	)
 	source.Debug(
-		fmt.Sprintf( "%s Total alloc = %v MiB",
+		fmt.Sprintf("%s Total alloc = %v MiB",
 			os.Args[0],
 			m.TotalAlloc/(1024*1024)),
 	)
@@ -67,4 +87,21 @@ func (source *Source) LogStats() {
 			os.Args[0],
 			m.NumGC),
 	)
+}
+
+func formatBytes(bytes int64) string {
+	var div int64 = 1
+	var symbol = "B"
+	symbols := map[int64]string{
+		1000000000:"GB",
+		1000000:"MB",
+		1000:"kB",
+	}
+	for d,s := range symbols {
+		if bytes > d {
+			div = d
+			symbol = s
+		}
+	}
+	return fmt.Sprintf("%d%s", bytes/div, symbol)
 }
