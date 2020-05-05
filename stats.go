@@ -103,5 +103,5 @@ func formatBytes(bytes int64) string {
 			symbol = s
 		}
 	}
-	return fmt.Sprintf("%d%s", bytes/div, symbol)
+	return fmt.Sprintf("%d %s", bytes/div, symbol)
 }
