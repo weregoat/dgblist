@@ -19,48 +19,48 @@ type Stats struct {
 func (source *Source) LogStats() {
 	now := time.Now()
 	source.Info(
-		fmt.Sprintf("%s current log file: %s",
+		fmt.Sprintf("source %+q current log file: %s",
 			source.Name,
 			source.File.Name(),
 		),
 	)
 	source.Info(
 		fmt.Sprintf(
-			"%s running time: %s",
+			"source %+q running time: %s",
 			source.Name,
 			now.Sub(source.Stats.Started),
 		),
 	)
 	source.Info(
 		fmt.Sprintf(
-			"%s total read since start: %s",
+			"source %+q total read since start: %s",
 			source.Name,
 			formatBytes(source.Stats.BytesRead),
 		),
 	)
 	source.Info(
 		fmt.Sprintf(
-			"%s bytes read current log file: %s",
+			"source %+q bytes read current log file: %s",
 			source.Name,
 			formatBytes(source.Pos),
 		),
 	)
 	source.Info(
 		fmt.Sprintf(
-			"%s lines processed: %d",
+			"source %+q lines processed: %d",
 			source.Name,
 			source.Stats.LinesRead,
 		),
 	)
 	source.Info(
-		fmt.Sprintf("%s addresses added to @%s: %d",
+		fmt.Sprintf("source %+q addresses added to @%s: %d",
 			source.Name,
 			source.Set.Name,
 			source.Stats.IPAdded,
 		),
 	)
 	source.Info(
-		fmt.Sprintf("%s events received: %d",
+		fmt.Sprintf("source %+q events received: %d",
 			source.Name,
 			source.Stats.Events,
 		),
