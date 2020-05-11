@@ -120,6 +120,7 @@ func (source *Source) Close() {
 	source.Info(
 		fmt.Sprintf("ending %s watch", source.Name),
 	)
+	unix.InotifyRmWatch(source.FileDescriptor, uint32(source.WatchDescriptor))
 	source.File.Close()
 	source.Logger.Close()
 	source.Unlock()
@@ -127,6 +128,7 @@ func (source *Source) Close() {
 
 // Watch starts watching the source file for matching patterns.
 func (source *Source) Watch() {
+	defer source.Close()
 	source.Stats.Started = time.Now()
 	// Read file on start
 	file, err := os.Open(source.LogFile)
