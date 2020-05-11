@@ -18,9 +18,9 @@ type Stats struct {
 func (source *Source) LogStats() {
 	now := time.Now()
 	source.Debug(
-		fmt.Sprintf("source %+q current log file: %s",
+		fmt.Sprintf("source %+q log file: %s",
 			source.Name,
-			source.File.Name(),
+			source.LogFile,
 		),
 	)
 	source.Debug(

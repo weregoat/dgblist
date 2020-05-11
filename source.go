@@ -27,7 +27,6 @@ type Source struct {
 	Events          chan uint32
 	Logger          *syslog.Writer
 	Pos             uint64
-	File            *os.File
 	FileInfo        os.FileInfo
 	FileDescriptor  int
 	WatchDescriptor int
@@ -120,23 +119,18 @@ func (source *Source) Close() {
 	source.Info(
 		fmt.Sprintf("ending %s watch", source.Name),
 	)
-	source.File.Close()
+	unix.InotifyRmWatch(source.FileDescriptor, uint32(source.WatchDescriptor))
 	source.Logger.Close()
 	source.Unlock()
 }
 
 // Watch starts watching the source file for matching patterns.
 func (source *Source) Watch() {
+	defer source.Close()
+	var err error
 	source.Stats.Started = time.Now()
 	// Read file on start
-	file, err := os.Open(source.LogFile)
-	if err != nil {
-		source.Err(err.Error())
-		return
-	}
-	source.File = file
 	blacklist := source.read()
-
 	source.addBlacklist(blacklist)
 	/*
 		inotify_init(2)
@@ -154,6 +148,7 @@ func (source *Source) Watch() {
 		source.Err(err.Error())
 		return
 	}
+
 	events := make(chan uint32)
 	errors := make(chan error)
 
@@ -248,22 +243,21 @@ func (source *Source) inotifyAddWatch() error {
 func (source *Source) Refresh() error {
 	source.Lock()
 	defer source.Unlock()
-	f, err := os.Open(source.LogFile)
+	current, err := os.Open(source.LogFile)
 	if err != nil {
 		return err
 	}
-	fi, err := f.Stat()
+	defer current.Close()
+	fileInfo, err := current.Stat()
 	if err != nil {
 		return err
 	}
 	// Deleted or moved
-	if !os.SameFile(fi, source.FileInfo) {
-		source.File.Close()
+	if !os.SameFile(fileInfo, source.FileInfo) {
 		source.Logger.Info(
 			fmt.Sprintf("re-opening %s file", source.LogFile),
 		)
-		source.File = f
-		source.FileInfo = fi
+		source.FileInfo = fileInfo
 		source.Pos = 0
 		unix.InotifyRmWatch(source.FileDescriptor, uint32(source.WatchDescriptor))
 		err = source.inotifyAddWatch()
@@ -276,10 +270,16 @@ func (source *Source) Refresh() error {
 
 // read looks for new log entries in the file and matches to the regexps.
 func (source *Source) read() map[string]string {
-	var blacklist = make(map[string]string)
-	var err error
 	source.Lock()
-	source.FileInfo, err = source.File.Stat()
+	defer source.Unlock()
+	var blacklist = make(map[string]string)
+	file, err := os.Open(source.LogFile)
+	if err != nil {
+		source.Err(err.Error())
+		return blacklist
+	}
+	defer file.Close()
+	source.FileInfo, err = file.Stat()
 	if err != nil {
 		source.Err(err.Error())
 		return blacklist
@@ -294,10 +294,9 @@ func (source *Source) read() map[string]string {
 		)
 		source.Pos = 0
 	}
-	defer source.Unlock()
 	var bytesRead uint64 = 0
-	source.File.Seek(int64(source.Pos), 0)
-	reader := bufio.NewReader(source.File)
+	file.Seek(int64(source.Pos), 0)
+	reader := bufio.NewReader(file)
 	for {
 		var line []byte
 		line, err = reader.ReadBytes('\n')

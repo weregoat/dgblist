@@ -39,7 +39,6 @@ func watch(source Source, wg *sync.WaitGroup) {
 	source.Info(
 		fmt.Sprintf("starting %s watch", source.Name),
 	)
-	defer source.Close()
 	go stats(&source)
 	source.Watch()
 	wg.Done()
