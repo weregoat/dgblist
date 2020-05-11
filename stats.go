@@ -2,15 +2,14 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 	"time"
 )
 
 type Stats struct {
 	Started   time.Time
-	BytesRead int64
-	LinesRead int64
+	BytesRead uint64
+	LinesRead uint64
 	IPAdded   int
 	Events    int
 	Interval  time.Duration
@@ -18,48 +17,48 @@ type Stats struct {
 
 func (source *Source) LogStats() {
 	now := time.Now()
-	source.Info(
+	source.Debug(
 		fmt.Sprintf("source %+q current log file: %s",
 			source.Name,
 			source.File.Name(),
 		),
 	)
-	source.Info(
+	source.Debug(
 		fmt.Sprintf(
 			"source %+q running time: %s",
 			source.Name,
 			now.Sub(source.Stats.Started),
 		),
 	)
-	source.Info(
+	source.Debug(
 		fmt.Sprintf(
 			"source %+q total read since start: %s",
 			source.Name,
 			formatBytes(source.Stats.BytesRead),
 		),
 	)
-	source.Info(
+	source.Debug(
 		fmt.Sprintf(
 			"source %+q bytes read current log file: %s",
 			source.Name,
-			formatBytes(source.Pos),
+			formatBytes(uint64(source.Pos)),
 		),
 	)
-	source.Info(
+	source.Debug(
 		fmt.Sprintf(
 			"source %+q lines processed: %d",
 			source.Name,
 			source.Stats.LinesRead,
 		),
 	)
-	source.Info(
+	source.Debug(
 		fmt.Sprintf("source %+q addresses added to @%s: %d",
 			source.Name,
 			source.Set.Name,
 			source.Stats.IPAdded,
 		),
 	)
-	source.Info(
+	source.Debug(
 		fmt.Sprintf("source %+q events received: %d",
 			source.Name,
 			source.Stats.Events,
@@ -67,38 +66,57 @@ func (source *Source) LogStats() {
 	)
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
+
 	source.Debug(
-		fmt.Sprintf("%s Alloc = %v MiB",
-			os.Args[0],
-			m.Alloc/(1024*1024)),
+		fmt.Sprintf("statistics: heap alloc = %s",
+			formatBytes(m.HeapAlloc),
+		),
 	)
 	source.Debug(
-		fmt.Sprintf("%s Total alloc = %v MiB",
-			os.Args[0],
-			m.TotalAlloc/(1024*1024)),
+		fmt.Sprintf("statistics: heap Idle = %s",
+			formatBytes(m.HeapIdle),
+		),
 	)
 	source.Debug(
-		fmt.Sprintf("%s Sys = %v MiB",
-			os.Args[0],
-			m.Sys/(1024*1024)),
+		fmt.Sprintf("statistics: cumulative total alloc = %s",
+			formatBytes(m.TotalAlloc),
+		),
 	)
+
 	source.Debug(
-		fmt.Sprintf("%s NumGC = %v MiB",
-			os.Args[0],
+		fmt.Sprintf("statistics: sys = %s",
+			formatBytes(m.Sys)),
+	)
+
+	source.Debug(
+		fmt.Sprintf("statistics: live objects = %d",
+			m.Mallocs-m.Frees,
+		),
+	)
+
+	source.Debug(
+		fmt.Sprintf("statistics: GC compled cicles so far = %d",
 			m.NumGC),
+	)
+	source.Debug(
+		fmt.Sprintf("statistics: last GC at %s",
+			time.Unix(0, int64(m.LastGC)).String(),
+		),
 	)
 }
 
-func formatBytes(bytes int64) string {
-	var div int64 = 1
+// formatBytes returns a string with the appropriate symbol for representing
+// a quantity of bytes.
+func formatBytes(bytes uint64) string {
+	var div uint64 = 1
 	var symbol = "B"
-	symbols := map[int64]string{
+	symbols := map[uint64]string{
 		1000000000: "GB",
 		1000000:    "MB",
 		1000:       "kB",
 	}
 	for d, s := range symbols {
-		if bytes > d {
+		if bytes > d && d > div {
 			div = d
 			symbol = s
 		}

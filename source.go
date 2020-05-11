@@ -26,7 +26,7 @@ type Source struct {
 	Regexps         []*regexp.Regexp
 	Events          chan uint32
 	Logger          *syslog.Writer
-	Pos             int64
+	Pos             uint64
 	File            *os.File
 	FileInfo        os.FileInfo
 	FileDescriptor  int
@@ -284,7 +284,7 @@ func (source *Source) read() map[string]string {
 		source.Err(err.Error())
 		return blacklist
 	}
-	if source.FileInfo.Size() < source.Pos {
+	if source.FileInfo.Size() < int64(source.Pos) {
 		source.Info(
 			fmt.Sprintf(
 				"file %s size changed to %d",
@@ -295,8 +295,8 @@ func (source *Source) read() map[string]string {
 		source.Pos = 0
 	}
 	defer source.Unlock()
-	var bytesRead int64 = 0
-	source.File.Seek(source.Pos, 0)
+	var bytesRead uint64 = 0
+	source.File.Seek(int64(source.Pos), 0)
 	reader := bufio.NewReader(source.File)
 	for {
 		var line []byte
@@ -308,7 +308,7 @@ func (source *Source) read() map[string]string {
 			break
 		}
 		source.Stats.LinesRead++
-		bytesRead += int64(len(line))
+		bytesRead += uint64(len(line))
 		for _, r := range source.Regexps {
 			sm := r.FindAllStringSubmatch(string(line), -1)
 			if len(sm) > 0 {
