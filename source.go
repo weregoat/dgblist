@@ -345,3 +345,13 @@ func (source *Source) read() map[string]string {
 	}
 	return blacklist
 }
+
+func getKeys(list map[string]string) []string {
+	i := 0
+	keys := make([]string, len(list))
+	for ip := range list {
+		keys[i] = ip
+		i++
+	}
+	return keys
+}

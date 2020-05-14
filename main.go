@@ -10,13 +10,24 @@ import (
 	"time"
 )
 
+var dirs = []string{
+	"/etc/",
+	"/usr/local/etc/",
+}
+
 func main() {
 	var fileConfig string
 	flag.StringVar(&fileConfig, "config", "", "Configuration file")
 	flag.Parse()
 	if len(fileConfig) == 0 {
 		filename := path.Base(os.Args[0]) + ".yaml"
-		fileConfig = path.Join("/etc/", filename)
+		for _, dir := range dirs {
+			fileConfig = path.Join(dir, filename)
+			_, err := os.Stat(fileConfig)
+			if err == nil {
+				break
+			}
+		}
 	}
 
 	sources, err := parse(fileConfig)
@@ -42,16 +53,6 @@ func watch(source Source, wg *sync.WaitGroup) {
 	go stats(&source)
 	source.Watch()
 	wg.Done()
-}
-
-func getKeys(list map[string]string) []string {
-	i := 0
-	keys := make([]string, len(list))
-	for ip := range list {
-		keys[i] = ip
-		i++
-	}
-	return keys
 }
 
 func stats(s *Source) {
