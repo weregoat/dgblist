@@ -6,7 +6,7 @@ After=nftables.service
 Type=simple
 User=root
 WorkingDirectory=/tmp/
-ExecStart=/usr/local/bin/dgblist -config /usr/local/etc/dgblist.yaml
+ExecStart=/usr/local/bin/dgblist
 Restart=on-failure
 
 [Install]
