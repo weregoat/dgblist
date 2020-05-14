@@ -1,11 +1,12 @@
 ---
 sources:
   - name: postfix # Just a name to identify the source
-    stats_interval: 8h # Minimum interval between stats logging. Omit no skip.
+    stats_interval: 8h # Minimum interval between stats logging. Omit to skip.
     syslog: &syslog # Syslog configuration
       tag: dgblist # syslog tag
       facility: local0 # Facility local0, local1... mail... Not all allowed.
       level: debug # minimum level. Be careful if you are logging to the same facility your logs are from
+                   # as there are Debugs messages reporting the text matching a regexp.
     nftables_set: &blackhole
       table: filter # nftables table
       name: blackhole # name of the set
