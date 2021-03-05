@@ -68,7 +68,7 @@ func Init(config *SourceConfig) (source *Source, err error) {
 	if len(config.Set.Name) > 0 {
 		err = config.Set.Check()
 		if err != nil {
-			return
+			return source, fmt.Errorf("invalid nft set @%s: %w", config.Set.Name, err)
 		}
 		source.Set = config.Set
 	}
@@ -393,13 +393,17 @@ func (source *Source) parse(line string, r *regexp.Regexp) []net.IP {
 			}
 
 			// Skip whitelisted addresses
+			add := true
 			for _, whitelisted := range source.WhiteList {
 				if ip.Equal(whitelisted) {
 					source.Debugf("IP address %s is whitelisted", ip.String())
-					continue
+					add = false
+					break
 				}
 			}
-			addresses = append(addresses, ip)
+			if add {
+				addresses = append(addresses, ip)
+			}
 		}
 	}
 	return addresses
