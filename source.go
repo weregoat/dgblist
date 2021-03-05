@@ -215,7 +215,7 @@ func (source *Source) Watch() {
 	}
 }
 
-// addBlacklist add the entries in the blacklist to the nftables set.
+// Blacklist add the IP addresses into the nftables set defined for the source.
 func (source *Source) Blacklist(addresses ...net.IP) {
 	added, err := source.Set.Add(addresses...)
 	if err != nil {
@@ -409,6 +409,8 @@ func (source *Source) parse(line string, r *regexp.Regexp) []net.IP {
 	return addresses
 }
 
+// contains a simple function to check if an IP is already contained in an existing
+// list of IPs.
 func contains(list []net.IP, ip net.IP) bool {
 	for _, present := range list {
 		if ip.Equal(present) {

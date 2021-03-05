@@ -32,8 +32,8 @@ type SourceConfig struct {
 	Whitelist     []string `yaml:"whitelist"`
 }
 
-// parse reads the configuration file and returns a list of sources to watch.
-func parse(filename string) (sources []*Source, err error) {
+// parseConfig reads the configuration file and returns a list of sources to watch.
+func parseConfig(filename string) (sources []*Source, err error) {
 	config := Config{}
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {

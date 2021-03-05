@@ -30,7 +30,7 @@ func main() {
 		}
 	}
 
-	sources, err := parse(fileConfig)
+	sources, err := parseConfig(fileConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,6 +46,7 @@ func main() {
 
 }
 
+// watch starts a go routine for watching a source.
 func watch(source *Source, wg *sync.WaitGroup) {
 	source.Info(
 		fmt.Sprintf("starting %s watch", source.Name),
@@ -55,6 +56,7 @@ func watch(source *Source, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
+// stats periodically logs the statistics for the source.
 func stats(s *Source) {
 	if s.Stats.Interval <= 0 {
 		return
