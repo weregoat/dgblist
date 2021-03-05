@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/syslog"
 	"strings"
 )
@@ -111,4 +112,36 @@ func (source *Source) Emerg(message string) {
 	if source.LogLevel >= syslog.LOG_EMERG {
 		source.Logger.Emerg(message)
 	}
+}
+
+func (source *Source) Debugf(format string, args ...interface{}) {
+	source.Debug(fmt.Sprintf(format, args...))
+}
+
+func (source *Source) Infof(format string, args ...interface{}) {
+	source.Info(fmt.Sprintf(format, args...))
+}
+
+func (source *Source) Noticef(format string, args ...interface{}) {
+	source.Notice(fmt.Sprintf(format, args...))
+}
+
+func (source *Source) Warningf(format string, args ...interface{}) {
+	source.Warning(fmt.Sprintf(format, args...))
+}
+
+func (source *Source) Errf(format string, args ...interface{}) {
+	source.Err(fmt.Sprintf(format, args...))
+}
+
+func (source *Source) Critf(format string, args ...interface{}) {
+	source.Crit(fmt.Sprintf(format, args...))
+}
+
+func (source *Source) Alertf(format string, args ...interface{}) {
+	source.Alert(fmt.Sprintf(format, args...))
+}
+
+func (source *Source) Emergf(format string, args ...interface{}) {
+	source.Emerg(fmt.Sprintf(format, args...))
 }

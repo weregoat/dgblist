@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"gitlab.com/weregoat/nftables"
+	"github.com/google/nftables"
 	"net"
 	"strings"
 )
@@ -24,7 +24,7 @@ func (s NftSet) Check() error {
 }
 
 // Add adds the given address to the set.
-func (s NftSet) Add(addresses ...string) ([]net.IP, error) {
+func (s NftSet) Add(addresses ...net.IP) ([]net.IP, error) {
 	var added []net.IP
 	set, err := s.Get()
 	if err != nil {
@@ -32,22 +32,23 @@ func (s NftSet) Add(addresses ...string) ([]net.IP, error) {
 	}
 	c := nftables.Conn{}
 	for _, address := range addresses {
-		ip := net.ParseIP(address)
 		switch strings.ToLower(s.Type) {
 		case IPV6:
-			ip = ip.To16()
+			address = address.To16()
+		case IPV4:
+			address = address.To4()
 		default:
-			ip = ip.To4()
+			return added, fmt.Errorf("unkown type %q for set %q", s.Type, s.Name)
 		}
-		if ip != nil {
+		if address != nil {
 			elements := make([]nftables.SetElement, 1)
 			element := nftables.SetElement{
-				Key: ip,
+				Key: address,
 			}
 			elements[0] = element
 			err = c.SetAddElements(set, elements)
 			if err == nil {
-				added = append(added, ip)
+				added = append(added, address)
 			}
 		}
 	}

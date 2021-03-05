@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"gitlab.com/weregoat/nftables"
+	"github.com/google/nftables"
 	"log"
 	"net"
 	"strings"

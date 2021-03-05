@@ -10,7 +10,7 @@ import (
 
 // Config is the general structure of the configuration file (a list of sources)
 type Config struct {
-	Sources []SourceConfig `yaml:"sources",flow`
+	Sources []*SourceConfig `yaml:"sources,flow"`
 }
 
 // Syslog configuration for syslog.
@@ -29,10 +29,11 @@ type SourceConfig struct {
 	Patterns      []string `yaml:"patterns"`
 	Syslog        Syslog   `yaml:"syslog"`
 	StatsInterval string   `yaml:"stats_interval"`
+	Whitelist     []string `yaml:"whitelist"`
 }
 
 // parse reads the configuration file and returns a list of sources to watch.
-func parse(filename string) (sources []Source, err error) {
+func parse(filename string) (sources []*Source, err error) {
 	config := Config{}
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {

@@ -46,11 +46,11 @@ func main() {
 
 }
 
-func watch(source Source, wg *sync.WaitGroup) {
+func watch(source *Source, wg *sync.WaitGroup) {
 	source.Info(
 		fmt.Sprintf("starting %s watch", source.Name),
 	)
-	go stats(&source)
+	go stats(source)
 	source.Watch()
 	wg.Done()
 }

@@ -31,13 +31,14 @@ type Source struct {
 	FileDescriptor  int
 	WatchDescriptor int
 	LogLevel        syslog.Priority
-	Config          SourceConfig
+	Config          *SourceConfig
 	Stats           Stats
+	WhiteList       []net.IP
 }
 
 // Init initialise the source according to the configuration entry.
-func Init(config SourceConfig) (source Source, err error) {
-	source = Source{}
+func Init(config *SourceConfig) (source *Source, err error) {
+	source = &Source{}
 	source.LogFile = config.LogFile
 	source.Name = config.Name
 	source.Lock()
@@ -101,6 +102,20 @@ func Init(config SourceConfig) (source Source, err error) {
 		)
 	}
 	source.Regexps = regexps
+
+	var whitelist []net.IP
+	for _, address := range config.Whitelist {
+		ip := net.ParseIP(address)
+		if ip != nil {
+			whitelist = append(whitelist, ip)
+		} else {
+			source.Warning(
+				fmt.Sprintf("Invalid whitelist address %q in source %q", address, source.Name),
+			)
+		}
+	}
+	source.WhiteList = whitelist
+
 	source.Config = config
 	if len(config.StatsInterval) > 0 {
 		interval, err := time.ParseDuration(config.StatsInterval)
@@ -130,8 +145,7 @@ func (source *Source) Watch() {
 	var err error
 	source.Stats.Started = time.Now()
 	// Read file on start
-	blacklist := source.read()
-	source.addBlacklist(blacklist)
+	source.Blacklist(source.read()...)
 	/*
 		inotify_init(2)
 		inotify_init() initializes a new inotify instance and returns a file
@@ -196,15 +210,14 @@ func (source *Source) Watch() {
 					return
 				}
 			}
-			blacklist := source.read()
-			source.addBlacklist(blacklist)
+			source.Blacklist(source.read()...)
 		}
 	}
 }
 
 // addBlacklist add the entries in the blacklist to the nftables set.
-func (source *Source) addBlacklist(blacklist map[string]string) {
-	added, err := source.Set.Add(getKeys(blacklist)...)
+func (source *Source) Blacklist(addresses ...net.IP) {
+	added, err := source.Set.Add(addresses...)
 	if err != nil {
 		source.Err(err.Error())
 	}
@@ -269,20 +282,20 @@ func (source *Source) Refresh() error {
 }
 
 // read looks for new log entries in the file and matches to the regexps.
-func (source *Source) read() map[string]string {
+func (source *Source) read() []net.IP {
 	source.Lock()
 	defer source.Unlock()
-	var blacklist = make(map[string]string)
+	blacklist := Blacklist{}
 	file, err := os.Open(source.LogFile)
 	if err != nil {
 		source.Err(err.Error())
-		return blacklist
+		return blacklist.Addresses()
 	}
 	defer file.Close()
 	source.FileInfo, err = file.Stat()
 	if err != nil {
 		source.Err(err.Error())
-		return blacklist
+		return blacklist.Addresses()
 	}
 	if source.FileInfo.Size() < int64(source.Pos) {
 		source.Info(
@@ -309,49 +322,94 @@ func (source *Source) read() map[string]string {
 		source.Stats.LinesRead++
 		bytesRead += uint64(len(line))
 		for _, r := range source.Regexps {
-			sm := r.FindAllStringSubmatch(string(line), -1)
-			if len(sm) > 0 {
-				for _, m := range sm {
-					if len(m) >= 2 {
-						ip := net.ParseIP(m[1]).To4()
-						if ip != nil {
-							blacklist[m[1]] = m[0]
-						} else {
-							source.Warning(
-								fmt.Sprintf(
-									"invalid IPv4 (%s) from regexp %+q\n", m[1], r.String(),
-								),
-							)
-						}
-					}
-				}
+			addresses := source.parse(string(line), r)
+			if err != nil {
+				source.Warning(err.Error())
+				continue
 			}
+			blacklist.Add(addresses...)
 		}
 	}
 	source.Pos += bytesRead
 	source.Stats.BytesRead += bytesRead
-	if source.LogLevel >= syslog.LOG_DEBUG {
-		for ip, match := range blacklist {
-			// Remove the IP from the matching string to avoid the regexp to match it again if the log is feed to the
-			// same log file.
-			text := fmt.Sprintf(
-				"address %s matches from %+q",
-				ip, strings.Replace(
-					match, ip, "{address was here}",
-					-1),
-			)
-			source.Debug(text)
-		}
-	}
-	return blacklist
+
+	return blacklist.Addresses()
 }
 
-func getKeys(list map[string]string) []string {
-	i := 0
-	keys := make([]string, len(list))
-	for ip := range list {
-		keys[i] = ip
-		i++
+// parse extracts the IP addresses from a given regexp from all the submatch and of the same type
+// as the nft set.
+func (source *Source) parse(line string, r *regexp.Regexp) []net.IP {
+	var addresses []net.IP
+	sm := r.FindAllStringSubmatch(line, -1)
+	// No match
+	if sm == nil {
+		return addresses
 	}
-	return keys
+	// There could be multiple matching
+	for _, m := range sm {
+		// m[0] is the matched text
+		// m[1] would be the first sub-match/capturing group
+		// m[2] the second capturing group if present, etc.
+		if len(m) < 2 {
+			// We don't bother if there are no sub-matches
+			continue
+		}
+
+		for i := 1; i < len(m); i++ {
+			if len(m[i]) == 0 {
+				// Empty submatch, no point in trying to parse it.
+				continue
+			}
+			ip := net.ParseIP(m[i])
+			if ip == nil {
+				source.Warningf(
+					"Invalid captured address %q from regexp %s on match %+q",
+					m[i], r.String(), m[0],
+				)
+				continue
+			}
+
+			// We want to be sure we will not be feeding IPv6 addresses into a IPv4 nft set.
+			// It's a bit complex as all net.IP are 16 bytes, but the quickest way to decide if a net.IP is IPv4
+			// is through the net.IP.To4() function.
+			if source.Set.Type == IPV4 && ip.To4() == nil {
+				source.Warningf(
+					"Matched address %s from %q is not a valid IPv4 address", m[i], m[0],
+				)
+				continue
+			}
+
+			// Remove the IP from the matching string to avoid the regexp to match it again if the log is feed to the
+			// same log file.
+			source.Debugf(
+				"Address %s from %+q",
+				m[i], strings.Replace(
+					m[0], m[i], "{address was here}",
+					-1),
+			)
+			// Try to avoid duplicates
+			if contains(addresses, ip) {
+				continue
+			}
+
+			// Skip whitelisted addresses
+			for _, whitelisted := range source.WhiteList {
+				if ip.Equal(whitelisted) {
+					source.Debugf("IP address %s is whitelisted", ip.String())
+					continue
+				}
+			}
+			addresses = append(addresses, ip)
+		}
+	}
+	return addresses
+}
+
+func contains(list []net.IP, ip net.IP) bool {
+	for _, present := range list {
+		if ip.Equal(present) {
+			return true
+		}
+	}
+	return false
 }
