@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/google/nftables"
 	"net"
@@ -19,6 +20,22 @@ type NftSet struct {
 
 // Check controls that a nftables exists or generate ones, if not.
 func (s NftSet) Check() error {
+	// Must have a table and name, to begin with.
+	if len(s.Table) == 0 {
+		return errors.New("empty table name for nftables set")
+	}
+	if len(s.Name) == 0 {
+		return errors.New("empty name for nftables set")
+	}
+	if len(s.Type) == 0 {
+		return errors.New("empty type for nftables set")
+	}
+	switch strings.ToLower(s.Type) {
+	case IPV6, IPV4:
+		break
+	default:
+		return fmt.Errorf("unhandled type %q for nftables set", s.Type)
+	}
 	_, err := s.Get()
 	return err
 }

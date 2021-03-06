@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"golang.org/x/sys/unix"
 	"io"
@@ -71,6 +72,8 @@ func Init(config *SourceConfig) (source *Source, err error) {
 			return source, fmt.Errorf("invalid nft set @%s: %w", config.Set.Name, err)
 		}
 		source.Set = config.Set
+	} else {
+		return source, errors.New("missing nft set name")
 	}
 
 	_, err = os.Stat(config.LogFile)
