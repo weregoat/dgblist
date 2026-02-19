@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -397,12 +398,9 @@ func (source *Source) parse(line string, r *regexp.Regexp) []net.IP {
 
 			// Skip whitelisted addresses
 			add := true
-			for _, whitelisted := range source.WhiteList {
-				if ip.Equal(whitelisted) {
-					source.Debugf("IP address %s is whitelisted", ip.String())
-					add = false
-					break
-				}
+			if slices.ContainsFunc(source.WhiteList, ip.Equal) {
+				source.Debugf("IP address %s is whitelisted", ip.String())
+				add = false
 			}
 			if add {
 				addresses = append(addresses, ip)
@@ -415,10 +413,5 @@ func (source *Source) parse(line string, r *regexp.Regexp) []net.IP {
 // contains a simple function to check if an IP is already contained in an existing
 // list of IPs.
 func contains(list []net.IP, ip net.IP) bool {
-	for _, present := range list {
-		if ip.Equal(present) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(list, ip.Equal)
 }

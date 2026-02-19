@@ -114,34 +114,34 @@ func (source *Source) Emerg(message string) {
 	}
 }
 
-func (source *Source) Debugf(format string, args ...interface{}) {
+func (source *Source) Debugf(format string, args ...any) {
 	source.Debug(fmt.Sprintf(format, args...))
 }
 
-func (source *Source) Infof(format string, args ...interface{}) {
+func (source *Source) Infof(format string, args ...any) {
 	source.Info(fmt.Sprintf(format, args...))
 }
 
-func (source *Source) Noticef(format string, args ...interface{}) {
+func (source *Source) Noticef(format string, args ...any) {
 	source.Notice(fmt.Sprintf(format, args...))
 }
 
-func (source *Source) Warningf(format string, args ...interface{}) {
+func (source *Source) Warningf(format string, args ...any) {
 	source.Warning(fmt.Sprintf(format, args...))
 }
 
-func (source *Source) Errf(format string, args ...interface{}) {
+func (source *Source) Errf(format string, args ...any) {
 	source.Err(fmt.Sprintf(format, args...))
 }
 
-func (source *Source) Critf(format string, args ...interface{}) {
+func (source *Source) Critf(format string, args ...any) {
 	source.Crit(fmt.Sprintf(format, args...))
 }
 
-func (source *Source) Alertf(format string, args ...interface{}) {
+func (source *Source) Alertf(format string, args ...any) {
 	source.Alert(fmt.Sprintf(format, args...))
 }
 
-func (source *Source) Emergf(format string, args ...interface{}) {
+func (source *Source) Emergf(format string, args ...any) {
 	source.Emerg(fmt.Sprintf(format, args...))
 }

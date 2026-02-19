@@ -2,7 +2,7 @@ package main
 
 import (
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
+
 	"log"
 	"os"
 	"sync"
@@ -35,7 +35,7 @@ type SourceConfig struct {
 // parseConfig reads the configuration file and returns a list of sources to watch.
 func parseConfig(filename string) (sources []*Source, err error) {
 	config := Config{}
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return
 	}
